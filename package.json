@@ -1,0 +1,35 @@
+{
+  "name": "orderflow-invest",
+  "version": "1.0.0",
+  "description": "Offline paper trading and simulated market terminal",
+  "author": "OrderFlow Invest",
+  "private": true,
+  "main": "desktop.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --win msi --x64",
+    "smoke": "node scripts/smoke.cjs"
+  },
+  "devDependencies": {
+    "electron": "45.3.4",
+    "electron-builder": "26.18.0",
+    "playwright-core": "1.61.1"
+  },
+  "build": {
+    "appId": "com.orderflow.invest",
+    "productName": "OrderFlow Invest",
+    "artifactName": "OrderFlow-Invest-${version}-${arch}.${ext}",
+    "files": ["desktop.cjs", "app/**/*", "!**/node_modules/**"],
+    "win": {
+      "target": "msi",
+      "icon": "app/mark.svg",
+      "signAndEditExecutable": false
+    },
+    "msi": {
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

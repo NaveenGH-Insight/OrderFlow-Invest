@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>OrderFlow Invest</title>
+  <link rel="icon" href="mark.svg">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="engine.js"></script>
+  <script defer src="terminal.js"></script>
+</head>
+<body>
+  <aside class="rail" aria-label="Primary navigation">
+    <div class="brand"><img src="mark.svg" alt="" width="34" height="34"><div>OrderFlow <span>Invest</span></div></div>
+    <div class="rail-label">WORKSPACE</div>
+    <nav>
+      <button class="nav current" data-screen="market" aria-current="page"><span data-icon="chart"></span>Market terminal</button>
+      <button class="nav" data-screen="portfolio"><span data-icon="wallet"></span>Portfolio</button>
+      <button class="nav" data-screen="orders"><span data-icon="receipt"></span>Order history</button>
+    </nav>
+    <div class="rail-label secondary">ASSET CLASSES</div>
+    <div class="nav unavailable"><span data-icon="layers"></span>Funds <small>Not available</small></div>
+    <div class="nav unavailable"><span data-icon="activity"></span>Options <small>Not available</small></div>
+    <div class="rail-bottom">
+      <div class="rail-paper"><span data-icon="shield"></span><div><strong>Paper trading</strong><small>Practice with virtual cash</small></div></div>
+      <div class="rail-footer">ORDERFLOW INVEST <span>V1.0</span></div>
+    </div>
+  </aside>
+  <main>
+    <header class="topbar">
+      <div class="top-label">Workspace <span>/</span> <strong id="crumb">Market terminal</strong></div>
+      <div class="top-right">
+        <button id="search-open" class="search-open" type="button"><span data-icon="search"></span>Find a symbol <kbd>Ctrl K</kbd></button>
+        <button id="cash-link" class="cash-link" type="button"><span data-icon="wallet"></span><span><small>VIRTUAL CASH</small><strong id="cash-value"></strong></span></button>
+      </div>
+    </header>
+    <div class="page">
+      <div class="page-heading">
+        <div><div class="eyebrow"><span></span> PAPER TRADING WORKSPACE</div><h1 id="page-title" tabindex="-1">Market terminal</h1><p id="page-description">Explore a simulated market and practice trading without real money.</p></div>
+        <button id="feed-toggle" class="feed-pill" type="button" aria-pressed="false" title="Pause or resume the simulation"><span></span><strong>Simulation running</strong><i data-icon="pause"></i></button>
+      </div>
+      <p id="storage-warning" class="warning" role="alert" hidden></p>
+      <section id="market-screen">
+        <div id="market-tape" class="tape" aria-label="Simulated market benchmarks"></div>
+        <div class="terminal-grid">
+          <section class="card watch">
+            <header class="watch-head"><div class="eyebrow">YOUR LIST</div><div class="watch-title"><h2>Watchlist</h2><button class="icon-button" id="watch-add" type="button" title="Add instruments" aria-label="Add instruments"><span data-icon="plus"></span></button></div><p id="watch-count"></p></header>
+            <div class="watch-columns"><span>INSTRUMENT</span><button id="sort-watch" type="button" title="Change watchlist sorting">PRICE / 1H <span data-icon="sort"></span></button></div>
+            <div class="watch-list" id="watch-list"></div>
+            <button type="button" id="watch-browse" class="watch-browse"><span data-icon="search"></span> Browse instruments <span data-icon="arrow-right"></span></button>
+          </section>
+          <section class="card instrument">
+            <header class="instrument-head">
+              <div id="identity" class="identity"></div>
+              <button id="favorite" class="icon-button favorite" type="button"><span data-icon="bookmark"></span></button>
+            </header>
+            <div class="quote-row">
+              <div><strong class="quote-price" id="quote-price"></strong><div class="quote-change" id="quote-change"></div></div>
+              <div class="order-actions"><button type="button" class="button button-outline" id="sell-open">Sell</button><button type="button" class="button button-primary" id="buy-open">Buy</button></div>
+            </div>
+            <section class="chart-section" aria-label="Price chart">
+              <div class="chart-toolbar">
+                <div><h3>Price chart</h3><span>1-min candles · Simulated executions</span></div>
+                <div id="ranges" class="ranges" aria-label="Chart range"><button data-range="30" type="button" aria-pressed="false">30m</button><button data-range="60" type="button" aria-pressed="true">1h</button><button data-range="120" type="button" aria-pressed="false">2h</button></div>
+              </div>
+              <div id="chart" class="chart" role="img"></div>
+              <div id="ohlc" class="ohlc" aria-label="Candle values"></div>
+            </section>
+            <div class="stats" id="stats"></div>
+          </section>
+        </div>
+      </section>
+      <section id="portfolio-screen" hidden>
+        <div class="tape summary" id="portfolio-summary"></div>
+        <section class="card records"><header><div class="eyebrow">PAPER PORTFOLIO</div><h2>Holdings</h2><p>Positions are valued using the latest simulated price.</p></header><div id="holdings"></div></section>
+      </section>
+      <section id="orders-screen" hidden>
+        <section class="card records"><header><div class="eyebrow">EXECUTION LOG</div><h2>Filled orders</h2><p>Orders fill immediately at the current simulated price when accepted.</p></header><div id="orders"></div></section>
+      </section>
+      <footer class="page-footer"><span data-icon="shield"></span>Simulated prices, fictional instruments, and virtual money. Not a brokerage or a live market feed.</footer>
+    </div>
+  </main>
+  <dialog id="search-dialog" aria-labelledby="search-title">
+    <div class="dialog-head"><div><div class="eyebrow">INSTRUMENT DIRECTORY</div><h2 id="search-title">Find an instrument</h2></div><button class="icon-button" data-close="search-dialog" type="button" aria-label="Close instrument finder"><span data-icon="x"></span></button></div>
+    <label class="sr-only" for="search-input">Search by symbol, company, or sector</label>
+    <input id="search-input" type="search" placeholder="Search by symbol, company, or sector" autocomplete="off">
+    <div class="search-results" id="search-results"></div>
+  </dialog>
+  <dialog id="order-dialog" aria-labelledby="order-title">
+    <div class="dialog-head"><div><div class="eyebrow">SIMULATED MARKET ORDER</div><h2 id="order-title"></h2></div><button class="icon-button" data-close="order-dialog" type="button" aria-label="Close order ticket"><span data-icon="x"></span></button></div>
+    <p class="ticket-note">Uses virtual money. The order fills at the simulated price shown when submitted; that price can update while this ticket is open.</p>
+    <form id="order-form" novalidate>
+      <label for="quantity">Shares</label><input id="quantity" type="number" min="1" max="10000" step="1" required value="1">
+      <dl class="ticket-details"><div><dt>Simulated price</dt><dd id="ticket-price"></dd></div><div><dt id="ticket-limit-label"></dt><dd id="ticket-limit"></dd></div><div><dt>Estimated value</dt><dd id="ticket-total"></dd></div></dl>
+      <p id="order-error" role="alert" class="warning" hidden></p>
+      <button id="place-order" class="button button-primary full" type="submit"></button>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
