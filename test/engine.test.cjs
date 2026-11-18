@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const E = require('../app/engine');
+const C = require('../app/chart');
 
 test('aggregates prices and quantities in execution order', () => {
   const trades = [[1050, 3], [1110, 4], [995, 2], [1010, 8]].map(([price, quantity]) => ({ price, quantity, time: 60000 }));
@@ -58,4 +59,32 @@ test('bad orders do not change balances, holdings, or history', () => {
   assert.throws(() => E.execute(state, 'NOVA', 'buy', 10000), /Not enough/);
   assert.throws(() => E.execute(state, 'NOVA', 'sell', 1), /do not own/);
   assert.deepEqual(state, before);
+});
+
+test('grouped bars keep actual OHLC and volume without filling partial windows or gaps', () => {
+  const toBar = ([minute, open, high, low, close, volume]) => ({ time: minute * 60000, open, high, low, close, volume });
+  const input = [
+    [3, 10, 12, 9, 11, 4], [4, 11, 13, 8, 10, 7],
+    [5, 10, 14, 8, 12, 5], [7, 12, 16, 10, 15, 6],
+    [16, 15, 18, 12, 17, 8]
+  ].map(toBar);
+  const before = structuredClone(input);
+  assert.deepEqual(C.groupBars(input, 5), [
+    { ...toBar([0, 10, 13, 8, 10, 11]), samples: 2 },
+    { ...toBar([5, 10, 16, 8, 15, 11]), samples: 2 },
+    { ...toBar([15, 15, 18, 12, 17, 8]), samples: 1 }
+  ]);
+  assert.deepEqual(input, before);
+});
+
+test('changing bar interval preserves the last quote and total volume of the selected history', () => {
+  const state = E.createState(1700000000000);
+  const bars = state.bars.NOVA.slice(-60);
+  const quote = E.quote(state, 'NOVA');
+  for (const interval of [1, 5, 15]) {
+    const groups = C.groupBars(bars, interval);
+    assert.equal(groups.at(-1).close, quote.price);
+    assert.equal(groups.reduce((sum, bar) => sum + bar.volume, 0), quote.volume);
+    assert.equal(groups.reduce((sum, bar) => sum + bar.samples, 0), 60);
+  }
 });

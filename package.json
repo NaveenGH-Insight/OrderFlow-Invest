@@ -1,6 +1,6 @@
 {
   "name": "orderflow-invest",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Offline paper trading and simulated market terminal",
   "author": "OrderFlow Invest",
   "private": true,

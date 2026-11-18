@@ -8,6 +8,7 @@
   <link rel="icon" href="mark.svg">
   <link rel="stylesheet" href="style.css">
   <script defer src="engine.js"></script>
+  <script defer src="chart.js"></script>
   <script defer src="terminal.js"></script>
 </head>
 <body>
@@ -24,7 +25,7 @@
     <div class="nav unavailable"><span data-icon="activity"></span>Options <small>Not available</small></div>
     <div class="rail-bottom">
       <div class="rail-paper"><span data-icon="shield"></span><div><strong>Paper trading</strong><small>Practice with virtual cash</small></div></div>
-      <div class="rail-footer">ORDERFLOW INVEST <span>V1.0</span></div>
+      <div class="rail-footer">ORDERFLOW INVEST <span>V1.1</span></div>
     </div>
   </aside>
   <main>
@@ -61,11 +62,24 @@
             </div>
             <section class="chart-section" aria-label="Price chart">
               <div class="chart-toolbar">
-                <div><h3>Price chart</h3><span>1-min candles · Simulated executions</span></div>
-                <div id="ranges" class="ranges" aria-label="Chart range"><button data-range="30" type="button" aria-pressed="false">30m</button><button data-range="60" type="button" aria-pressed="true">1h</button><button data-range="120" type="button" aria-pressed="false">2h</button></div>
+                <div><h3>Price chart</h3><span id="chart-meta"></span></div>
+                <div class="chart-tools">
+                  <details id="chart-types" class="chart-types">
+                    <summary id="chart-type-label"><span data-icon="candles"></span><strong>Candle</strong><span data-icon="chevron"></span></summary>
+                    <fieldset><legend>Chart style</legend><div id="style-options"></div></fieldset>
+                  </details>
+                  <label class="sr-only" for="bar-interval">Bar interval</label>
+                  <select id="bar-interval"><option value="1">1 min</option><option value="5">5 min</option><option value="15">15 min</option></select>
+                  <button type="button" id="volume-toggle" class="icon-button" aria-label="Show volume" title="Show volume" aria-pressed="true"><span data-icon="volume"></span></button>
+                  <button type="button" id="chart-focus" class="icon-button" aria-label="Expand chart" title="Expand chart" aria-pressed="false"><span data-icon="expand"></span></button>
+                </div>
               </div>
-              <div id="chart" class="chart" role="img"></div>
+              <div id="chart" class="chart" role="img" tabindex="0" aria-describedby="ohlc chart-help"></div>
               <div id="ohlc" class="ohlc" aria-label="Candle values"></div>
+              <div class="chart-footer">
+                <span id="chart-help">Use arrow keys or hover to inspect bars.</span>
+                <div id="ranges" class="ranges" aria-label="Chart range"><button data-range="15" type="button" aria-pressed="false">15m</button><button data-range="30" type="button" aria-pressed="false">30m</button><button data-range="60" type="button" aria-pressed="true">1h</button><button data-range="120" type="button" aria-pressed="false" title="Maximum retained simulated history: 2 hours">2h</button></div>
+              </div>
             </section>
             <div class="stats" id="stats"></div>
           </section>

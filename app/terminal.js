@@ -1,5 +1,6 @@
 'use strict';
 const E = window.InvestEngine;
+const C = window.InvestChart;
 const $ = id => document.getElementById(id);
 const paths = {
   chart: 'M3 3v18h18M6 15l4-4 4 2 6-7',
@@ -18,7 +19,11 @@ const paths = {
   box: 'm3 7 9-4 9 4v10l-9 4-9-4zm0 0 9 4 9-4m-9 4v10',
   truck: 'M3 6h12v11H3zm12 4h4l3 4v3h-7M6 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm13 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   cross: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z',
-  pause: 'M9 5v14m6-14v14', play: 'm8 5 11 7-11 7z', check: 'm5 12 4 4L19 6'
+  pause: 'M9 5v14m6-14v14', play: 'm8 5 11 7-11 7z', check: 'm5 12 4 4L19 6',
+  candles: 'M4 3v4m0 7v5m8-16v7m0 7v4m8-19v3m0 8v7M2 7h4v7H2zm8 3h4v7h-4zm8-5h4v8h-4z',
+  chevron: 'm6 9 6 6 6-6', volume: 'M3 19h18M6 16v-5m6 5V5m6 11V8',
+  expand: 'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6',
+  collapse: 'M3 9h6V3m12 6h-6V3M3 15h6v6m12-6h-6v6'
 };
 const ico = name => `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(node => { node.innerHTML = ico(node.dataset.icon); });
@@ -64,6 +69,10 @@ function save() {
 }
 let screen = 'market';
 let range = 60;
+let interval = 1;
+let mode = 'candle';
+let showVolume = true;
+let focusedChart = false;
 let sorting = 0;
 let paused = false;
 let side = 'buy';
@@ -88,6 +97,7 @@ function say(message) {
   toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
 }
 function navigate(next) {
+  if (next !== 'market' && focusedChart) setChartFocus(false);
   screen = next;
   for (const name of Object.keys(descriptions)) $(`${name}-screen`).hidden = name !== next;
   document.querySelectorAll('[data-screen]').forEach(button => {
@@ -169,40 +179,51 @@ function renderMarket() {
 function renderChart() {
   const chart = $('chart');
   if (!chart.clientWidth || screen !== 'market') return;
-  chartBars = state.bars[state.selected].slice(-range);
+  const rawBars = state.bars[state.selected].slice(-range);
+  chartBars = C.groupBars(rawBars, interval);
+  if (chartIndex !== null) chartIndex = Math.min(chartIndex, chartBars.length - 1);
+  const partial = chartBars.some(bar => bar.samples !== interval);
+  $('chart-meta').textContent = `${interval}-min bars · Last close ${clock.format(state.time)} IST · Simulated`;
+  $('chart-help').textContent = partial ? 'Partial bars use only available minutes. Up to 2h retained.'
+    : 'Hover or use arrow keys to inspect. Up to 2h retained.';
   const width = chart.clientWidth, height = chart.clientHeight;
-  const plot = width - 63, top = 14, priceBottom = height - 57, volumeBottom = height - 23;
+  const plot = width - 72, top = 14, volumeBottom = height - 23;
+  const priceBottom = showVolume ? volumeBottom - 39 : volumeBottom - 3;
   chartPlot = plot;
   const stride = plot / chartBars.length;
   const volMax = Math.max(...chartBars.map(bar => bar.volume));
-  const low = Math.min(...chartBars.map(bar => bar.low)), high = Math.max(...chartBars.map(bar => bar.high));
+  const usesWicks = ['candle', 'bar', 'colored-bar', 'hollow', 'volume', 'hlc'].includes(mode);
+  const low = Math.min(...chartBars.map(bar => usesWicks ? bar.low : bar.close));
+  const high = Math.max(...chartBars.map(bar => usesWicks ? bar.high : bar.close));
   const spread = Math.max(100, high - low) * 1.17;
   const ceiling = (high + low + spread) / 2;
   const y = price => top + (ceiling - price) / spread * (priceBottom - top);
   const x = index => stride * (index + 0.5);
   const bodyWidth = Math.max(1, stride * 0.62);
-  let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true" data-chart-style="${mode}">`;
   for (let i = 0; i < 5; i++) {
     const price = ceiling - spread * i / 4;
     const py = y(price);
     svg += `<path class="grid" d="M0 ${py}H${plot}"/><text x="${plot + 6}" y="${py + 4}">${axis.format(price / 100)}</text>`;
   }
-  for (let i = 0; i <= 4; i++) {
-    const px = plot * i / 4;
-    const bar = chartBars[Math.round((chartBars.length - 1) * i / 4)];
-    svg += `<path class="grid" d="M${px} ${top}V${volumeBottom}"/><text x="${px}" y="${height - 5}" text-anchor="${i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}">${clock.format(bar.time)}</text>`;
+  const ticks = Math.min(5, chartBars.length);
+  for (let i = 0; i < ticks; i++) {
+    const index = ticks === 1 ? 0 : Math.round((chartBars.length - 1) * i / (ticks - 1));
+    const px = x(index);
+    svg += `<path class="grid" d="M${px} ${top}V${volumeBottom}"/><text x="${px}" y="${height - 5}" text-anchor="${ticks === 1 ? 'middle' : i === 0 ? 'start' : i === ticks - 1 ? 'end' : 'middle'}">${clock.format(chartBars[index].time)}</text>`;
   }
-  chartBars.forEach((bar, i) => {
-    const cx = x(i), left = cx - bodyWidth / 2, open = y(bar.open), close = y(bar.close);
+  svg += C.series(mode, chartBars, { x, y, stride, bottom: priceBottom, plot, volumeMax: volMax });
+  if (showVolume) chartBars.forEach((bar, i) => {
+    const left = x(i) - bodyWidth / 2;
     const color = bar.close >= bar.open ? 'gain' : 'loss';
     const volume = 26 * bar.volume / volMax;
-    svg += `<line class="${color}" x1="${cx}" y1="${y(bar.high)}" x2="${cx}" y2="${y(bar.low)}"/><rect class="${color}" x="${left}" y="${Math.min(open, close)}" width="${bodyWidth}" height="${Math.max(1, Math.abs(open - close))}"/><rect class="${color} vbar" x="${left}" y="${volumeBottom - volume}" width="${bodyWidth}" height="${volume}"/>`;
+    svg += `<rect class="${color} vbar" x="${left}" y="${volumeBottom - volume}" width="${bodyWidth}" height="${volume}"/>`;
   });
   const last = chartBars.at(-1), lastY = y(last.close);
   const band = Math.max(16, Math.min(priceBottom - 2, lastY));
-  svg += `<path class="last-line" d="M0 ${lastY}H${plot}"/><rect class="last-tag" x="${plot}" y="${band - 8}" width="62" height="16" rx="3"/><text class="tag-text" x="${plot + 31}" y="${band + 4}" text-anchor="middle">${axis.format(last.close / 100)}</text><line id="crosshair" class="crosshair" y1="${top}" y2="${volumeBottom}" visibility="hidden"/></svg>`;
+  svg += `<path class="last-line" d="M0 ${lastY}H${plot}"/><rect class="last-tag" x="${plot}" y="${band - 8}" width="71" height="16" rx="3"/><text class="tag-text" x="${plot + 35}" y="${band + 4}" text-anchor="middle">${axis.format(last.close / 100)}</text><line id="crosshair" class="crosshair" y1="${top}" y2="${volumeBottom}" visibility="hidden"/></svg>`;
   chart.innerHTML = svg;
-  chart.setAttribute('aria-label', `${state.selected} simulated candlestick and volume chart, last ${range} minutes. Latest close ${money(last.close)}.`);
+  chart.setAttribute('aria-label', `${state.selected} simulated ${C.modes.find(([id]) => id === mode)[1]} chart${showVolume ? ' with volume' : ''}. Last ${range} minutes, ${interval}-minute bars. Latest close ${money(last.close)}.`);
   renderCrosshair();
 }
 function renderCrosshair() {
@@ -216,7 +237,17 @@ function renderCrosshair() {
     cross.setAttribute('x2', x);
     cross.setAttribute('visibility', chartIndex === null ? 'hidden' : 'visible');
   }
-  $('ohlc').innerHTML = `<span><b>${clock.format(bar.time)} IST</b></span>${[['O', bar.open], ['H', bar.high], ['L', bar.low], ['C', bar.close]].map(([label, value]) => `<span>${label} <b>${money(value)}</b></span>`).join('')}<span>Vol <b>${number.format(bar.volume)}</b></span>`;
+  $('ohlc').innerHTML = `<span><b>${clock.format(bar.time)} IST</b></span>${[['O', bar.open], ['H', bar.high], ['L', bar.low], ['C', bar.close]].map(([label, value]) => `<span>${label} <b>${money(value)}</b></span>`).join('')}<span>Vol <b>${number.format(bar.volume)}</b></span>${bar.samples < interval ? `<span class="partial-bar">Partial · ${bar.samples}/${interval} min</span>` : ''}`;
+}
+function setChartFocus(expanded) {
+  focusedChart = expanded;
+  $('market-screen').classList.toggle('chart-expanded', expanded);
+  $('chart-focus').setAttribute('aria-pressed', String(expanded));
+  const label = expanded ? 'Exit expanded chart' : 'Expand chart';
+  $('chart-focus').setAttribute('aria-label', label);
+  $('chart-focus').title = label;
+  $('chart-focus').querySelector('span').innerHTML = ico(expanded ? 'collapse' : 'expand');
+  renderChart();
 }
 function table(head, rows, empty) {
   if (!rows.length) return `<p class="empty">${empty}</p>`;
@@ -297,6 +328,15 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     openSearch();
   }
+  if (event.key === 'Escape' && !$('search-dialog').open && !$('order-dialog').open) {
+    if ($('chart-types').open) {
+      $('chart-types').open = false;
+      $('chart-type-label').focus();
+    } else if (focusedChart) {
+      setChartFocus(false);
+      $('chart-focus').focus();
+    }
+  }
 });
 $('watch-list').addEventListener('click', event => {
   const row = event.target.closest('[data-symbol]');
@@ -304,6 +344,28 @@ $('watch-list').addEventListener('click', event => {
 });
 $('sort-watch').addEventListener('click', () => { sorting = (sorting + 1) % 3; renderMarket(); });
 $('favorite').addEventListener('click', () => toggleWatch(state.selected));
+$('style-options').innerHTML = C.modes.map(([id, label]) =>
+  `<label><input type="radio" name="chart-style" value="${id}"${id === mode ? ' checked' : ''}><span>${label}</span></label>`).join('');
+$('style-options').addEventListener('change', event => {
+  mode = event.target.value;
+  $('chart-type-label').querySelector('strong').textContent = C.modes.find(([id]) => id === mode)[1];
+  renderChart();
+});
+document.addEventListener('click', event => {
+  const menu = $('chart-types');
+  if (menu.open && !menu.contains(event.target)) menu.open = false;
+});
+$('bar-interval').addEventListener('change', event => {
+  interval = Number(event.target.value);
+  chartIndex = null;
+  renderChart();
+});
+$('volume-toggle').addEventListener('click', () => {
+  showVolume = !showVolume;
+  $('volume-toggle').setAttribute('aria-pressed', String(showVolume));
+  renderChart();
+});
+$('chart-focus').addEventListener('click', () => setChartFocus(!focusedChart));
 $('ranges').addEventListener('click', event => {
   const button = event.target.closest('[data-range]');
   if (!button) return;
@@ -319,6 +381,16 @@ $('chart').addEventListener('pointermove', event => {
   renderCrosshair();
 });
 $('chart').addEventListener('pointerleave', () => { chartIndex = null; renderCrosshair(); });
+$('chart').addEventListener('keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const last = chartBars.length - 1;
+  const current = chartIndex ?? last;
+  chartIndex = event.key === 'Home' ? 0 : event.key === 'End' ? last
+    : Math.max(0, Math.min(last, current + (event.key === 'ArrowLeft' ? -1 : 1)));
+  renderCrosshair();
+});
+$('chart').addEventListener('blur', () => { chartIndex = null; renderCrosshair(); });
 new ResizeObserver(renderChart).observe($('chart'));
 $('feed-toggle').addEventListener('click', () => {
   paused = !paused;
